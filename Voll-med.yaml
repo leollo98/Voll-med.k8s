@@ -1,0 +1,178 @@
+# Voll.Med API init
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voll-med
+  labels:
+    app: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: voll-med
+        image: leonardosartorello/vollmed:v7
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: dados
+              key: DB_HOST
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: senhas
+              key: MYSQL_ROOT_PASSWORD
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: dados
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: dados
+              key: REDIS_PORT
+        ports:
+        - containerPort: 3000
+        livenessProbe:
+          httpGet:
+            path: /paciente
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: vollmed
+# spec:
+#   type: NodePort
+#   selector:
+#     app: api
+#   ports:
+#   - name: http
+#     port: 3000
+#     targetPort: 3000
+#     protocol: TCP
+#     nodePort: 30000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vollmedlb
+spec:
+  type: LoadBalancer
+  selector:
+    app: api
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    protocol: TCP
+# Voll.Med API end
+--- 
+# MYSQL init
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: mysql
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - image: mysql:8
+        name: mysql
+        env:
+          # Use secret in real usage
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: senhas
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_DATABASE
+          # value: testemed
+          valueFrom:
+            configMapKeyRef:
+              name: dados
+              key: MYSQL_DATABASE
+
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv-volume
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data2"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+# informações não sensiveis:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dados
+data:
+  MYSQL_DATABASE: meu-testemed
+  DB_HOST: mysql
+  REDIS_HOST: my-redis-master.default.svc.cluster.local
+  REDIS_PORT: "6379"
+---
+# informações sensiveis
+apiVersion: v1
+kind: Secret
+metadata:
+  name: senhas
+type: Opaque
+stringData:
+  MYSQL_ROOT_PASSWORD: minhasenha

@@ -1,0 +1,10 @@
+# informações não sensiveis:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dados
+data:
+  MYSQL_DATABASE: meu-testemed
+  MYSQL_HOST: mysql
+  REDIS_HOST: my-redis-master.default.svc.cluster.local
+  REDIS_PORT: "6379"

@@ -8,3 +8,4 @@ data:
   MYSQL_HOST: mysql
   REDIS_HOST: my-redis-master.default.svc.cluster.local
   REDIS_PORT: "6379"
+  all_databases: "yes"

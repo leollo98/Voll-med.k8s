@@ -72,3 +72,47 @@ spec:
   resources:
     requests:
       storage: 10Gi
+# ---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysqldump
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: mysqldump
+            image: leonardosartorello/mysqldump:v2
+            env:
+              - name: ALL_DATABASES
+                valueFrom:
+                  configMapKeyRef:
+                    name: dados
+                    key: all_databases
+              - name: DB_HOST
+                valueFrom:
+                  configMapKeyRef:
+                    name: dados
+                    key: MYSQL_HOST
+              - name: DB_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: senhas
+                    key: MYSQL_USER
+              - name: DB_PASS
+                valueFrom:
+                  secretKeyRef:
+                    name: senhas
+                    key: MYSQL_ROOT_PASSWORD
+            imagePullPolicy: Always
+            volumeMounts:
+              - mountPath: /mysqldump
+                name: mysqldump
+          volumes:
+            - name: mysqldump
+              hostPath:
+                path: "/home/leosa/API-Voll.Med"
+          restartPolicy: OnFailure
